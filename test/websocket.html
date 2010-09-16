@@ -8,10 +8,14 @@
 
     <script>
       document.addEventListener('DOMContentLoaded', function() {
-        var ws = new WebSocket("ws://weare.buildingsky.net:7777/websocket");
+        var url = "ws://" + window.location.host + ":8888";
+        console.log(url);
+        var ws = new WebSocket(url);
 
-        ws.onmessage = function(event) {
+        ws.onopen = function(event) {
+          console.log("WHEE!");
         };
+		});
     </script>
   </head>
 </html>

@@ -1,18 +1,24 @@
-var ws = require("./ws");
+var sys = require("sys")
+  , ws = require('./lib/ws');
 
-// Websocket TCP server
-ws.createServer(function (websocket)
-{
-	clients.push(websocket);
+var server = ws.createServer();
 
-	websocket.addListener("connect", function (resource)
-	{
-		// emitted after handshake
-		sys.debug("connect: " + resource);
-	}).addListener("close", function ()
-		{
-			// emitted when server or client closes connection
-			clients.remove(websocket);
-			sys.debug("close");
-		});
-}).listen(8888);
+server.addListener("listening", function(){
+  sys.log("Listening for connections.");
+});
+
+// Handle WebSocket Requests
+server.addListener("connection", function(conn){
+  conn.send("Connection: "+conn.id);
+  console.log("Connection!");
+
+  conn.addListener("message", function(message){
+    conn.broadcast("<"+conn.id+"> "+message);
+  });
+});
+
+server.addListener("close", function(conn){
+  server.broadcast("<"+conn.id+"> disconnected");
+});
+
+server.listen(8888);

@@ -1,131 +1,135 @@
-// Github: http://github.com/ncr/node.ws.js
-// Compatible with node v0.1.91
-// Author: Jacek Becela
-// License: MIT
-// Based on: http://github.com/Guille/node.websocket.js
+/*-----------------------------------------------
+  Requirements:
+-----------------------------------------------*/
+var sys    = require("sys")
+  , http   = require("http")
+  , events = require("events")
+  , path   = require("path");
 
-function nano(template, data) {
-  return template.replace(/\{([\w\.]*)}/g, function (str, key) {
-    var keys = key.split("."), value = data[keys.shift()];
-    keys.forEach(function (key) { value = value[key] });
-    return value;
+require.paths.unshift(__dirname);
+
+var Manager = require("ws/manager")
+  , Connection = require("ws/connection");
+
+
+/*-----------------------------------------------
+  Mixin:
+-----------------------------------------------*/
+var mixin = function(target, source) {
+  for(var i = 0, keys = Object.keys(source), l = keys.length; i < l; ++i) {
+    if(source.hasOwnProperty(keys[i])){
+      target[keys[i]] = source[keys[i]];
+    }
+  }
+  return target;
+};
+
+/*-----------------------------------------------
+  WebSocket Server Exports:
+-----------------------------------------------*/
+exports.Server = Server;
+exports.createServer = function(options){
+  return new Server(options);
+};
+
+/*-----------------------------------------------
+  WebSocket Server Implementation:
+-----------------------------------------------*/
+
+function Server(options){
+  var ws = this;
+
+  events.EventEmitter.call(this);
+
+  this.options = mixin({
+    debug: false,         // Boolean:       Show debug information.
+    version: "auto",      // String:        Value must be either: draft75, draft76, auto
+    origin: "*",          // String, Array: A match for a valid connection origin
+    subprotocol: "*",     // String, Array: A match for a valid connection subprotocol.
+    datastore: true,      // Object, Function, Boolean: If === true, then it is the default mem-store.
+    server: new http.Server()
+  }, options || {});
+
+  this.manager = new Manager(this.options.debug);
+  this.server  = this.options.server
+  this.debug   = this.options.debug;
+
+  this.server.addListener("upgrade", function(req, socket, upgradeHead){
+    if( req.method == "GET" && ( "upgrade" in req.headers && "connection" in req.headers) &&
+        req.headers.upgrade.toLowerCase() == "websocket" && req.headers.connection.toLowerCase() == "upgrade"
+    ){
+      // create a new connection, it'll handle everything else.
+      new Connection(ws, req, socket, upgradeHead);
+    } else {
+      // Close the socket, it wasn't a valid connection.
+      socket.end();
+      socket.destroy();
+    }
   });
-}
 
-var sys = require("sys"),
-  net = require("net"),
-  headerExpressions = [
-    /^GET (\/[^\s]*) HTTP\/1\.1$/,
-    /^Upgrade: WebSocket$/,
-    /^Connection: Upgrade$/,
-    /^Host: (.+)$/,
-    /^Origin: (.+)$/
-  ],
-  handshakeTemplate = [
-    'HTTP/1.1 101 Web Socket Protocol Handshake', 
-    'Upgrade: WebSocket', 
-    'Connection: Upgrade',
-    'WebSocket-Origin: {origin}',
-    'WebSocket-Location: ws://{host}{resource}',
-    '',
-    ''
-  ].join("\r\n"),
-  policy_file = '<cross-domain-policy><allow-access-from domain="*" to-ports="*" /></cross-domain-policy>';
-
-exports.createServer = function (websocketListener) {
-  return net.createServer(function (socket) {
+  this.server.addListener("connection", function(socket){
     socket.setTimeout(0);
     socket.setNoDelay(true);
-    socket.setEncoding("utf8");
-
-    var emitter = new process.EventEmitter(),
-      handshaked = false,
-      buffer = "";
-      
-    function handle(data) {
-      buffer += data;
-      
-      var chunks = buffer.split("\ufffd"),
-        count = chunks.length - 1; // last is "" or a partial packet
-        
-      for(var i = 0; i < count; i++) {
-        var chunk = chunks[i];
-        if(chunk[0] == "\u0000") {
-          emitter.emit("data", chunk.slice(1));
-        } else {
-          socket.end();
-          return;
-        }
-      }
-      
-      buffer = chunks[count];
-    }
-
-    function handshake(data) {
-      var headers = data.split("\r\n");
-
-      if(/<policy-file-request.*>/.exec(headers[0])) {
-        socket.write(policy_file);
-        socket.end();
-        return;
-      }
-
-      var matches = [], match;
-      for (var i = 0, l = headerExpressions.length; i < l; i++) {
-        match = headerExpressions[i].exec(headers[i]);
-
-        if (match) {
-          if(match.length > 1) {
-            matches.push(match[1]);
-          }
-        } else {
-          socket.end();
-          return;
-        }
-      }
-
-      socket.write(nano(handshakeTemplate, {
-        resource: matches[0],
-        host:     matches[1],
-        origin:   matches[2],
-      }));
-
-      handshaked = true;
-      emitter.emit("connect", matches[0]);
-    }
-
-    socket.addListener("data", function (data) {
-      if(handshaked) {
-        handle(data);
-      } else {
-        handshake(data);
-      }
-    }).addListener("end", function () {
-      socket.end();
-    }).addListener("close", function () {
-      if (handshaked) { // don't emit close from policy-requests
-        emitter.emit("close");
-      }
-    });
-
-    emitter.remoteAddress = socket.remoteAddress;
-    
-    emitter.write = function (data) {
-      try {
-        socket.write('\u0000', 'binary');
-        socket.write(data, 'utf8');
-        socket.write('\uffff', 'binary');
-      } catch(e) { 
-        // Socket not open for writing, 
-        // should get "close" event just before.
-        socket.end();
-      }
-    }
-    
-    emitter.end = function () {
-      socket.end();
-    }
-    
-    websocketListener(emitter); // emits: "connect", "data", "close", provides: write(data), end()
+    socket.setKeepAlive(true, 0);
   });
+
+  this.server.addListener("listening", function(req, res){
+    ws.emit("listening");
+  });
+
+  this.server.addListener("close", function(errno){
+    ws.emit("shutdown", errno);
+  });
+
+  this.server.addListener("request", function(req, res){
+    ws.emit("request", req, res);
+  });
+
+  this.server.addListener("stream", function(stream){
+    ws.emit("stream", stream);
+  });
+
+  this.server.addListener("clientError", function(e){
+    ws.emit("clientError", e);
+  });
+};
+
+sys.inherits(Server, events.EventEmitter);
+
+/*-----------------------------------------------
+  Public API
+-----------------------------------------------*/
+Server.prototype.setSecure = function (credentials) {
+  this.server.setSecure.call(this.server, credentials);
 }
+
+Server.prototype.listen = function(){
+  this.server.listen.apply(this.server, arguments);
+};
+
+Server.prototype.close = function(){
+  this.server.close();
+};
+
+Server.prototype.send = function(id, data){
+  this.manager.find(id, function(client){
+    if(client && client._state === 4){
+      client.write(data);
+    }
+  });
+};
+
+Server.prototype.broadcast = function(data){
+  this.manager.forEach(function(client){
+    if(client && client._state === 4){
+      client.write(data);
+    }
+  });
+};
+
+
+
+Server.prototype.use = function(module){
+  module.call(this, this.options);
+};
+
