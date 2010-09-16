@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <title>WebSocket Test</title>
+    <script language="javascript" src="lib/processing.js"></script>
+    <script language="javascript" src="lib/init.js"></script>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', function() {
+        var ws = new WebSocket("ws://weare.buildingsky.net:7777/websocket");
+
+        ws.onmessage = function(event) {
+        };
+    </script>
+  </head>
+</html>
