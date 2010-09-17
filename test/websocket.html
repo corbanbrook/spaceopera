@@ -8,11 +8,14 @@
       var players = {};
 
       document.addEventListener("DOMContentLoaded", function() {
+        // setup shortcut function for Processing.logger
+        var println = Processing.instances[0].println;
+
         // node.js server address
         var url = "ws://192.168.2.22:8888/websocket";
 
         // connect to server
-        alert("Connecting to " + url + "...");
+        println("Connecting to " + url + "...");
         var ws = new WebSocket(url);
 
         function message(type, data) {
@@ -24,16 +27,16 @@
         } //message
 
         ws.onopen = function() {
-          alert("Connected!");
+          println("-- Connected!");
           ws.send(message("get_map_data"));
         }; //ws.onopen
         
         ws.onclose = function() {
-          alert("Disconnected!");
+          println("Disconnected!");
         }; //ws.onclose
 
         ws.onmessage = function(event) {
-          alert(event.data);
+          println(event.data);
           obj = JSON.parse(event.data);
 
           switch(obj.type) {
