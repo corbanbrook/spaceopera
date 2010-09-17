@@ -6,16 +6,79 @@
     <script language="javascript" src="lib/processing.js"></script>
     <script language="javascript" src="lib/init.js"></script>
 
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
+  </head>
+	<body>
+	
+		<script type="application/processing">
+			map_width = 0;
+			map_height = 0;
+			players = {};
+
+			function message(type, data) {
+				if (data === undefined)	data = null;
+				var m = {	type: type,	data: data };
+				return "" + JSON.stringify(m);
+			} //message
+
+			void setup()
+			{
         var url = "ws://" + window.location.host + ":8888";
-        console.log(url);
+        console.log("Connecting to " + url);
         var ws = new WebSocket(url);
 
         ws.onopen = function(event) {
-          console.log("WHEE!");
+          console.log("Connected!");
+					ws.send(message("get_map_data"));
         };
-		});
-    </script>
-  </head>
+
+				ws.onmessage = function(event) {
+					console.log(event.data);
+					obj = JSON.parse(event.data);
+
+					switch(obj.type)
+					{
+						case "player_connected":
+							break;
+
+						case "player_disconnected":
+							break;
+
+						case "get_map_data":
+							console.log("Got Map Data");
+							map_width = obj.data.width;
+							map_height = obj.data.height;
+							for (var p in obj.data.players){
+								var player = obj.data.players[p];
+								players[p] = player;
+							} //for
+							break;
+					} //switch
+
+				};
+
+
+				size(500, 500);
+				console.log("Setting Up Processing.");
+			} //setup
+
+			void draw()
+			{
+				fill(0, 121, 184);
+				stroke(255);
+				background(10, 10, 10, 10);
+
+				if (players.length > 0)
+				{
+					for (var p in players)
+					{
+						var player = players[p];
+						ellipse(player.position.x, player.position.y, 10, 10);
+					} //for
+				} //if
+				
+			} //draw
+		</script>
+
+	<canvas width="500" height="500"></canvas>
+	</body>
 </html>
