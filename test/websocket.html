@@ -4,86 +4,67 @@
   <head>
     <title>WebSocket Test</title>
     <script language="javascript" src="lib/processing.js"></script>
-    <script language="javascript" src="lib/init.js"></script>
+    <script>
+      var players = {};
 
-  </head>
-	<body>
-	
-		<script type="application/processing">
-			map_width = 0;
-			map_height = 0;
-			players = {};
+      document.addEventListener("DOMContentLoaded", function() {
+        // node.js server address
+        var url = "ws://192.168.2.22:8888/websocket";
 
-			function message(type, data) {
-				if (data === undefined)	data = null;
-				var m = {	type: type,	data: data };
-				return "" + JSON.stringify(m);
-			} //message
-
-			void setup()
-			{
-        var url = "ws://" + window.location.host + ":8888";
-        console.log("Connecting to " + url);
+        // connect to server
+        alert("Connecting to " + url + "...");
         var ws = new WebSocket(url);
 
-        ws.onopen = function(event) {
-          console.log("Connected!");
-					ws.send(message("get_map_data"));
-        };
+        function message(type, data) {
+          if (data === undefined) { 
+            data = null;
+          }
+          var m = {  type: type,  data: data };
+          return JSON.stringify(m);
+        } //message
 
-				ws.onmessage = function(event) {
-					console.log(event.data);
-					obj = JSON.parse(event.data);
+        ws.onopen = function() {
+          alert("Connected!");
+          ws.send(message("get_map_data"));
+        }; //ws.onopen
+        
+        ws.onclose = function() {
+          alert("Disconnected!");
+        }; //ws.onclose
 
-					switch(obj.type)
-					{
-						case "player_connected":
-							var player = obj.data;
-							players[player.uuid] = player;
-							break;
+        ws.onmessage = function(event) {
+          alert(event.data);
+          obj = JSON.parse(event.data);
 
-						case "player_disconnected":
-							var player = obj.data;
-							var uuid = player.uuid;
-							players[uuid] = null;
-							break;
+          switch(obj.type) {
+            case "player_connected":
+              var player = obj.data;
+              players[player.uuid] = player;
+              break;
 
-						case "get_map_data":
-							console.log("Got Map Data");
-							map_width = obj.data.width;
-							map_height = obj.data.height;
-							for (var p in obj.data.players){
-								var player = obj.data.players[p];
-								players[p] = player;
-							} //for
-							break;
-					} //switch
+            case "player_disconnected":
+              var player = obj.data;
+              var uuid = player.uuid;
+              players[uuid] = null;
+              break;
 
-				};
+            case "get_map_data":
+              map_width = obj.data.width;
+              map_height = obj.data.height;
+              for (var p in obj.data.players){
+                if (obj.data.players.hasOwnProperty(p)) {
+                  var player = obj.data.players[p];
+                  players[p] = player;
+                }
+              } //for
+              break;
+          } //switch
 
-
-				size(500, 500);
-				console.log("Setting Up Processing.");
-			} //setup
-
-			void draw()
-			{
-				fill(0, 121, 184);
-				stroke(255);
-				background(10, 10, 10, 10);
-
-				if (players.length > 0)
-				{
-					for (var p in players)
-					{
-						var player = players[p];
-						ellipse(player.position.x, player.position.y, 10, 10);
-					} //for
-				} //if
-				
-			} //draw
-		</script>
-
-	<canvas width="500" height="500"></canvas>
-	</body>
+        }; //ws.onmessage
+      }, false); //DOMContentLoaded
+    </script>
+  </head>
+  <body>
+    <canvas data-processing-sources="websocket.pjs" width="500" height="500"></canvas>
+  </body>
 </html>
