@@ -3,15 +3,50 @@
 <html>
   <head>
     <title>WebSocket Test</title>
-    <script language="javascript" src="lib/processing.js"></script>
-    <script language="javascript" src="lib/init.js"></script>
+    <script language="javascript" src="../lib/processing.js"></script>
 
     <script>
+      // setup random player starting coords
+      var player = {
+        sid: null,
+        name: "Buck Rogers",
+        x: Math.random() * 640,
+        y: Math.random() * 400
+      };
+
+      // Test players array
+      var players = [{x: 320, y: 200}];
+
       document.addEventListener('DOMContentLoaded', function() {
-        var ws = new WebSocket("ws://weare.buildingsky.net:7777/websocket");
+        // connect to game server
+        var ws = new WebSocket("ws://localhost:8080/websocket");
+        
+        ws.onopen = function() {
+          alert("connected");
+
+          // send player information to server
+          ws.send(JSON.stringify(player));
+        };
+        
+        ws.onclose = function() {
+          alert("disconnected");
+        };
 
         ws.onmessage = function(event) {
+          // first message will contain sid 
+          player.sid = event.data;
+
+          alert("sid: " + player.sid);
+  
+          // override onmessage for future transmissions
+          ws.onmessage = function(event) {
+            players.push(JSON.parse(event.data));
+          };
         };
+      }, false);
     </script>
   </head>
+  <body>
+    <canvas data-processing-sources="websocket.pjs"></canvas>
+  </body>
 </html>

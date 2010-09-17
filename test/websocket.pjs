@@ -1,0 +1,20 @@
+void setup() {
+  size(640, 400);
+  fill(255);
+  noStroke();
+}
+
+void draw() {
+  background(0);
+
+  fill(255);
+
+  // draw all player positions
+  for (int i = 0; i < players.length; i++) {
+    ellipse(players[i].x, players[i].y, 4, 4);
+  }
+
+  // draw self postion in red
+  fill(255, 100, 100);
+  ellipse(player.x, player.y, 5, 5);
+}
