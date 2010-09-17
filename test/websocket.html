@@ -38,9 +38,14 @@
 					switch(obj.type)
 					{
 						case "player_connected":
+							var player = obj.data;
+							players[player.uuid] = player;
 							break;
 
 						case "player_disconnected":
+							var player = obj.data;
+							var uuid = player.uuid;
+							players[uuid] = null;
 							break;
 
 						case "get_map_data":
